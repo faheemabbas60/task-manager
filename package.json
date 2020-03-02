@@ -3,8 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+<<<<<<< HEAD
     "start": "node src/db/index.js",
     "dev": "nodemon src/db/index.js"
+=======
+   "start":"node src/index.js",
+   "dev":"nodemon src/index.js"
+>>>>>>> c61e333d0ba8ec09a43d37855c910abc57b4e3e1
   },
   "keywords": [],
   "author": "",
