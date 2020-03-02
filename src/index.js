@@ -1,4 +1,4 @@
-require('./db/mongoose')
+require('./database/mongoose')
 const User = require('./models/user')
 const Task = require('./models/task')
 const express = require('express')
