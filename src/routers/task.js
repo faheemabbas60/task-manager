@@ -36,5 +36,28 @@ router.post('/tasks', (req, res) => {
     })
 })
 
-
-module.exports=router
+router.patch('/tasks/:id', async (req, res) => {
+    try {
+        const updates = Object.keys(req.body)
+        const allowedUpdates = ['description', 'completed']
+        const isValidOperation = updates.every((update) => {
+            return allowedUpdates.includes(update)
+        })
+        if (!isValidOperation) {
+            return res.status(400).send({ error: 'invalid updates' })
+        }
+        const task = await Task.findById(req.params.id)
+        updates.forEach((update) => {
+            task[updates] = req.body[updates]
+        })
+        await task.save()
+        if (!task) {
+            return res.status(404).send('Task not found')
+        }
+        res.status(201).send(task)
+    }
+    catch (e) {
+        res.status(500).send(e)
+    }
+})
+module.exports = router

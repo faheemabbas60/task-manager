@@ -1,12 +1,15 @@
 const mongoose = require('mongoose')
 const validator = require('validator')
-const User = mongoose.model('User', {
+const bcrypt = require('bcryptjs')
+const jwt=require('jsonwebtoken')
+const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true
     },
     email: {
         type: String,
+        unique:true,
         required: true,
         validate(value) {
             if (!validator.isEmail(value)) {
@@ -24,17 +27,66 @@ const User = mongoose.model('User', {
     },
     password: {
         type: String,
-        required:true,
+        required: true,
         trim: true,
         validate(value) {
             if (value.length <= 6) {
                 throw new Error('Password must be greater then 6')
             }
-            else if(value.includes('password')){
+            else if (value.includes('password')) {
                 throw new Error('Password must not contain password word')
             }
         }
 
-    }
+    },
+    tokens:[{
+        token:{
+            type:String,
+            required:true
+        }
+    }]
 })
-module.exports=User
+
+userSchema.methods.generateAuthToken=async function(){
+    const user=this
+    const token=jwt.sign({_id:user._id},'thisistokenapp')
+    user.tokens=user.tokens.concat({token})
+    await user.save()
+    return token
+
+}
+
+userSchema.methods.getPublicProfile=async function(){
+    const user=this
+    const userObject=user.toObject()
+    // delete userObject.password
+    // delete userObject.tokens
+    return userObject
+}
+userSchema.statics.findByCredentials = async (email,password)=>{
+    const user=await User.findOne({'email':email})
+    console.log('user',user)
+    if(!user){
+        throw new Error('Unable to login')
+    }
+    const isMatch=await bcrypt.compare(password,user.password)
+    console.log('isMatch',isMatch)
+    if(!isMatch){
+        throw new Error('Unable to login')
+    }
+    return user
+}
+
+userSchema.pre('save', async function (next) {
+    const user = this
+    console.log('just before saving',user.isModified('password'))
+    if (user.isModified('password')) {
+        user.password = await bcrypt.hash(user.password, 8)
+        console.log('password modified')
+    }
+    next()
+
+})
+const User = mongoose.model('User', userSchema
+)
+module.exports = User
