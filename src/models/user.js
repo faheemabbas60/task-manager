@@ -1,7 +1,8 @@
 const mongoose = require('mongoose')
 const validator = require('validator')
 const bcrypt = require('bcryptjs')
-const jwt=require('jsonwebtoken')
+const jwt = require('jsonwebtoken')
+const Task=require('../models/task')
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -9,7 +10,7 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        unique:true,
+        unique: true,
         required: true,
         validate(value) {
             if (!validator.isEmail(value)) {
@@ -39,39 +40,42 @@ const userSchema = new mongoose.Schema({
         }
 
     },
-    tokens:[{
-        token:{
-            type:String,
-            required:true
+    tokens: [{
+        token: {
+            type: String,
+            required: true
         }
     }]
 })
 
-userSchema.methods.generateAuthToken=async function(){
-    const user=this
-    const token=jwt.sign({_id:user._id},'thisistokenapp')
-    user.tokens=user.tokens.concat({token})
+userSchema.methods.generateAuthToken = async function () {
+    const user = this
+    const token = jwt.sign({ _id: user._id }, 'thisistokenapp')
+    user.tokens = user.tokens.concat({ token })
     await user.save()
     return token
 
 }
 
-userSchema.methods.getPublicProfile=async function(){
-    const user=this
-    const userObject=user.toObject()
-    // delete userObject.password
-    // delete userObject.tokens
+userSchema.methods.toJSON =  function () {
+    const user = this
+    //console.log(user)
+    const userObject = user.toObject()
+    // console.log('object',userObject)
+    delete userObject.password
+    delete userObject.tokens
     return userObject
 }
-userSchema.statics.findByCredentials = async (email,password)=>{
-    const user=await User.findOne({'email':email})
-    console.log('user',user)
-    if(!user){
+
+userSchema.statics.findByCredentials = async (email, password) => {
+    const user = await User.findOne({ 'email': email })
+   // console.log('user', user)
+    if (!user) {
         throw new Error('Unable to login')
     }
-    const isMatch=await bcrypt.compare(password,user.password)
-    console.log('isMatch',isMatch)
-    if(!isMatch){
+    const isMatch = await bcrypt.compare(password, user.password)
+    console.log('isMatch', isMatch)
+    if (!isMatch) {
         throw new Error('Unable to login')
     }
     return user
@@ -79,13 +83,18 @@ userSchema.statics.findByCredentials = async (email,password)=>{
 
 userSchema.pre('save', async function (next) {
     const user = this
-    console.log('just before saving',user.isModified('password'))
+    console.log('just before saving', user.isModified('password'))
     if (user.isModified('password')) {
         user.password = await bcrypt.hash(user.password, 8)
         console.log('password modified')
     }
     next()
 
+})
+userSchema.pre('remove',async function(next){
+    const user=this
+    Task.deleteMany({owner:user._id})
+    next()
 })
 const User = mongoose.model('User', userSchema
 )
