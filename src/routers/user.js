@@ -1,6 +1,19 @@
 const express = require('express')
 const User = require('../models/user')
 const auth = require('../middleware/auth')
+const multer = require('multer')
+const upload = new multer({
+
+    limits: {
+        fileSize: 1000000
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.match(/\.(jpg|png|jpeg)$/)) {
+            return cb(new Error('Please upload jpg,jpeg,png file'))
+        }
+        cb(undefined, true)
+    }
+})
 const router = new express.Router();
 
 router.post('/users', async (req, res) => {
@@ -69,7 +82,7 @@ router.get('/users/me', auth, async (req, res) => {
     res.status(201).send(req.user)
 })
 
-router.patch('/users/me',auth, async (req, res) => {
+router.patch('/users/me', auth, async (req, res) => {
     const updates = Object.keys(req.body)
     const allowedUpdates = ['name', 'age', 'password']
     const isValidOperation = updates.every((update) => {
@@ -105,6 +118,37 @@ router.delete('/users/me', auth, async (req, res) => {
     }
     catch (e) {
         res.status(400).send(e)
+    }
+})
+
+const middleware = (req, res, next) => {
+    throw new Error('called from middleware')
+}
+router.post('/users/me/avatar', auth, upload.single('upload'), async (req, res) => {
+    req.user.avatar = req.file.buffer
+    //  console.log(req.user)
+    await req.user.save('Profile pic added')
+    res.send()
+}, (error, req, res, next) => {
+    res.status(400).send({ error: error.message })
+})
+router.delete('/users/me/avatar', auth, async (req, res) => {
+    req.user.avatar = undefined
+    req.user.save()
+    res.send('Profile pic removed')
+}, (error, req, res, next) => {
+    res.status(400).send({ error: error.message })
+})
+router.get('/users/:id/avatar', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id)
+        if(!user || !user.avatar){
+            throw new Error()
+        }
+        res.set('Content-Type','image/jpg')
+        res.send(user.avatar)
+    } catch (e) {
+        res.status(404).send(e)
     }
 })
 module.exports = router
